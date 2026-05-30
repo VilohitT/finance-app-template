@@ -5,7 +5,9 @@ import Link from "next/link";
 import { fetchSettings, fetchSkills, SettingsState, Skill } from "@/lib/api";
 import { ChatClient, ConnectionStatus, ServerEvent } from "@/lib/ws";
 import ChatInput from "./ChatInput";
+import FilesModal from "./FilesModal";
 import MessageList from "./MessageList";
+import Welcome from "./Welcome";
 import type { Block, MessageRecord } from "./Message";
 
 function genId() {
@@ -18,12 +20,22 @@ export default function ChatInterface() {
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
+  const [filesOpen, setFilesOpen] = useState(false);
   const clientRef = useRef<ChatClient | null>(null);
 
   // Load skills + settings once.
   useEffect(() => {
     fetchSkills().then(setSkills).catch(() => setSkills([]));
     fetchSettings().then(setSettings).catch(() => setSettings(null));
+  }, []);
+
+  // Refresh settings when window regains focus (user may have just set a key).
+  useEffect(() => {
+    function onFocus() {
+      fetchSettings().then(setSettings).catch(() => {});
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   // Connect WebSocket.
@@ -227,6 +239,7 @@ export default function ChatInterface() {
   }
 
   const noApiKey = settings?.has_api_key === false;
+  const showWelcome = messages.length === 0;
 
   return (
     <div className="h-screen flex flex-col">
@@ -241,6 +254,12 @@ export default function ChatInterface() {
         </div>
         <div className="flex items-center gap-4 text-xs">
           <ConnectionDot status={status} />
+          <button
+            onClick={() => setFilesOpen(true)}
+            className="text-gray-400 hover:text-gray-200"
+          >
+            files
+          </button>
           {activeSkill && (
             <button
               onClick={handleReset}
@@ -255,7 +274,7 @@ export default function ChatInterface() {
         </div>
       </header>
 
-      {noApiKey && (
+      {noApiKey && !showWelcome && (
         <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-6 py-2 text-xs text-yellow-200">
           No Anthropic API key configured.{" "}
           <Link href="/settings" className="underline">
@@ -265,13 +284,19 @@ export default function ChatInterface() {
         </div>
       )}
 
-      <MessageList messages={messages} />
+      {showWelcome ? (
+        <Welcome hasApiKey={settings?.has_api_key ?? false} />
+      ) : (
+        <MessageList messages={messages} />
+      )}
 
       <ChatInput
         skills={skills}
-        disabled={status !== "open"}
+        disabled={status !== "open" || noApiKey}
         onSend={handleSend}
       />
+
+      <FilesModal open={filesOpen} onClose={() => setFilesOpen(false)} />
     </div>
   );
 }

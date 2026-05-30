@@ -47,3 +47,35 @@ export async function updateSettings(
   if (!res.ok) throw new Error(`Settings update failed: ${res.status}`);
   return res.json();
 }
+
+export interface FileEntry {
+  path: string;
+  is_dir: boolean;
+  size: number | null;
+}
+
+export async function listFiles(path = ""): Promise<FileEntry[]> {
+  const url = new URL(`${API_BASE}/api/files`, window.location.origin);
+  if (path) url.searchParams.set("path", path);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Files list failed: ${res.status}`);
+  return res.json();
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  size: number;
+}
+
+export async function fetchFileContent(path: string): Promise<FileContent> {
+  const url = new URL(`${API_BASE}/api/files/content`, window.location.origin);
+  url.searchParams.set("path", path);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    if (res.status === 415) throw new Error("Binary file (not text)");
+    if (res.status === 404) throw new Error("File not found");
+    throw new Error(`File fetch failed: ${res.status}`);
+  }
+  return res.json();
+}
