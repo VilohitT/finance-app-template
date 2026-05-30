@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -12,12 +13,22 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import agent, config, settings, skills
+from . import agent, config, scheduler, settings, skills
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Finance App Backend", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler.service.start()
+    try:
+        yield
+    finally:
+        scheduler.service.shutdown()
+
+
+app = FastAPI(title="Finance App Backend", version="0.1.0", lifespan=lifespan)
 
 # CORS for local dev where the frontend may run on a different port.
 app.add_middleware(
@@ -58,7 +69,25 @@ def update_settings(payload: SettingsUpdate) -> dict[str, Any]:
         data.pop("anthropic_api_key")
     updated = s.model_copy(update=data)
     settings.save(updated)
+    # If the scheduler toggle changed, reconcile the running jobs.
+    scheduler.service.sync_with_settings()
     return get_settings()
+
+
+# ---------- Scheduler ----------
+
+@app.get("/api/scheduler")
+def scheduler_status() -> dict[str, Any]:
+    return scheduler.service.status()
+
+
+@app.post("/api/scheduler/run/{job_id}")
+async def scheduler_run(job_id: str) -> dict[str, Any]:
+    try:
+        await scheduler.service.trigger(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return scheduler.service.status()
 
 
 # ---------- Skills ----------

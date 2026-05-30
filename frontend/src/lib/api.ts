@@ -79,3 +79,39 @@ export async function fetchFileContent(path: string): Promise<FileContent> {
   }
   return res.json();
 }
+
+export interface JobRun {
+  started_at: string;
+  finished_at: string | null;
+  status: "running" | "success" | "failed";
+  exit_code: number | null;
+  output_tail: string;
+}
+
+export interface SchedulerJob {
+  id: string;
+  description: string;
+  next_run: string | null;
+  scheduled: boolean;
+  last_run: JobRun | null;
+  history: JobRun[];
+}
+
+export interface SchedulerStatus {
+  enabled: boolean;
+  jobs: SchedulerJob[];
+}
+
+export async function fetchSchedulerStatus(): Promise<SchedulerStatus> {
+  const res = await fetch(`${API_BASE}/api/scheduler`);
+  if (!res.ok) throw new Error(`Scheduler status failed: ${res.status}`);
+  return res.json();
+}
+
+export async function triggerSchedulerJob(jobId: string): Promise<SchedulerStatus> {
+  const res = await fetch(`${API_BASE}/api/scheduler/run/${jobId}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Trigger failed: ${res.status}`);
+  return res.json();
+}
