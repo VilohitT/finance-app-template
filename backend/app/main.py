@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -19,8 +20,42 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def seed_project_dir() -> None:
+    """Populate PROJECT_ROOT from /app/template on first run.
+
+    Only seeds items that don't already exist — preserves user changes across
+    container restarts. To pick up template updates after upgrading the image,
+    delete the relevant file/directory under your mounted project volume and
+    restart the container.
+
+    In dev mode, /app/template won't exist; we skip silently (the existing repo
+    layout already has everything in the right places).
+    """
+    if not config.TEMPLATE_DIR.exists():
+        logger.info(
+            "No template at %s — skipping seed (dev mode)", config.TEMPLATE_DIR
+        )
+        return
+    config.PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
+    seeded: list[str] = []
+    for item in sorted(config.TEMPLATE_DIR.iterdir()):
+        dest = config.PROJECT_ROOT / item.name
+        if dest.exists():
+            continue
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+        seeded.append(item.name)
+    if seeded:
+        logger.info("Seeded project dir with: %s", ", ".join(seeded))
+    else:
+        logger.info("Project dir already populated; nothing to seed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    seed_project_dir()
     scheduler.service.start()
     try:
         yield

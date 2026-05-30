@@ -23,6 +23,11 @@ next-env.d.ts
 data/.config/
 data/.sessions/
 
+# User project volume — populated at container first-run from /app/template.
+# The repo's authoritative templates live at the repo root; this directory
+# is just where docker compose puts a user's working copy.
+/project/
+
 # macOS
 .DS_Store
 .AppleDouble

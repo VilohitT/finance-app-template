@@ -26,24 +26,33 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Backend source
 COPY backend/ /app/backend/
 
-# Skills, scripts, laws — baked into the image (not user data).
+# Skills are read-only application code (the agent loads them at runtime).
 COPY .claude/skills/ /app/.claude/skills/
-COPY scripts/ /app/scripts/
-COPY laws/ /app/laws/
 
-# Foundation file scaffolds — used by /setup to seed an empty data volume.
-COPY goals.md principles.md user-principles.md portfolio.md decisions-log.md /app/template/
+# Template: the complete default project layout. Seeded into PROJECT_ROOT on
+# first container start (see backend/app/main.py:seed_project_dir). Includes
+# foundation md scaffolds, the universal laws/ rules, all helper scripts,
+# the pre-seeded schemes catalogue, and empty data ledgers.
+COPY goals.md principles.md user-principles.md portfolio.md decisions-log.md \
+     /app/template/
+COPY laws /app/template/laws
+COPY scripts /app/template/scripts
+COPY data/market.db /app/template/data/market.db
+COPY data/transactions.json /app/template/data/transactions.json
+COPY data/recurring.json /app/template/data/recurring.json
+COPY data/fund_quality.json /app/template/data/fund_quality.json
 
 # Frontend static build
 COPY --from=frontend-builder /build/out/ /app/frontend/out/
 
-ENV PROJECT_ROOT=/app/data \
+ENV PROJECT_ROOT=/app/project \
     SKILLS_ROOT=/app/.claude/skills \
-    SCRIPTS_ROOT=/app/scripts \
+    TEMPLATE_DIR=/app/template \
     PYTHONPATH=/app/backend
 
-# Default: mount the user's data directory at /app/data.
-VOLUME ["/app/data"]
+# Persistent user data lives here. Mount a host directory at /app/project to
+# preserve foundation files, NAV history, and transactions across restarts.
+VOLUME ["/app/project"]
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "/app/backend"]

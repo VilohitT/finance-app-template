@@ -8,10 +8,10 @@ A local-first investment planning system. Captures your goals and structure thro
 
 ```bash
 # 1. Run the image, mounting a local directory for your data
-mkdir -p ~/finance-data
+mkdir -p ~/finance-app-data
 docker run -d --name finance-app \
   -p 8000:8000 \
-  -v ~/finance-data:/app/data \
+  -v ~/finance-app-data:/app/project \
   ghcr.io/vilohitt/finance-app-template:latest
 
 # 2. Open http://localhost:8000
@@ -20,7 +20,7 @@ docker run -d --name finance-app \
 # 5. Follow the welcome card: /finance-grill → /principles-grill → /portfolio-grill
 ```
 
-That's it. All data persists in `~/finance-data`. Stop the container any time; resume by restarting it.
+That's it. All data persists in `~/finance-app-data`. Stop the container any time; resume by restarting it. On first start, the directory is seeded from the image with foundation files, scripts, laws, and a pre-populated NAV scheme catalogue.
 
 See [`GETTING_STARTED.md`](GETTING_STARTED.md) for the full Day-1 walkthrough.
 
@@ -33,7 +33,7 @@ docker compose up --build
 # Open http://localhost:8000
 ```
 
-The compose file mounts `./data` (in the repo) as the user data directory.
+The compose file mounts `./project` (in the repo) as the user data directory — gitignored, created on first run.
 
 ## Local dev (without Docker)
 

@@ -34,16 +34,16 @@ That's it. No Python install on your machine — everything runs in the containe
 ### 1. Start the container (~1 min)
 
 ```bash
-mkdir -p ~/finance-data
+mkdir -p ~/finance-app-data
 docker run -d --name finance-app \
   -p 8000:8000 \
-  -v ~/finance-data:/app/data \
+  -v ~/finance-app-data:/app/project \
   ghcr.io/vilohitt/finance-app-template:latest
 ```
 
 Open http://localhost:8000.
 
-The `-v ~/finance-data:/app/data` mount is where your data lives — foundation md files, `market.db` with NAV history, transactions ledger, API key. Stop and restart the container any time; data persists.
+The `-v ~/finance-app-data:/app/project` mount is where your data lives — foundation md files, `data/market.db` with NAV history, transactions ledger, API key, scripts and laws. On first start, the empty directory is seeded from the image with default scaffolds; subsequent restarts preserve everything.
 
 ### 2. Paste your Anthropic API key (~1 min)
 
@@ -173,7 +173,7 @@ See [`system-walkthrough.md`](system-walkthrough.md) for the deep dive.
 
 **Chat says "No Anthropic API key configured"**
 - Visit `/settings`, paste your key from console.anthropic.com, save. Come back to `/`.
-- The key is stored at `data/.config/settings.json` inside the container (mode 0600), which maps to `~/finance-data/.config/settings.json` on your host.
+- The key is stored at `.config/settings.json` inside the container (mode 0600), which maps to `~/finance-app-data/.config/settings.json` on your host.
 
 **Scheduler "Run now" fails with exit code != 0**
 - Open the expanded "Show last output" pane to see the script's stderr.
@@ -183,7 +183,7 @@ See [`system-walkthrough.md`](system-walkthrough.md) for the deep dive.
 ```bash
 docker stop finance-app    # stops the container; data persists
 docker start finance-app   # resumes
-docker rm finance-app      # removes the container (data still persists in ~/finance-data)
+docker rm finance-app      # removes the container (data still persists in ~/finance-app-data)
 ```
 
 **Upgrade to a newer image**
@@ -191,9 +191,16 @@ docker rm finance-app      # removes the container (data still persists in ~/fin
 docker pull ghcr.io/vilohitt/finance-app-template:latest
 docker stop finance-app && docker rm finance-app
 docker run -d --name finance-app -p 8000:8000 \
-  -v ~/finance-data:/app/data \
+  -v ~/finance-app-data:/app/project \
   ghcr.io/vilohitt/finance-app-template:latest
 ```
+
+> **Picking up template updates after upgrade.** The seed step only fills in
+> missing files. To pick up changes the new image makes to `laws/`,
+> `scripts/`, or the framework `principles.md`, delete the specific file or
+> directory under `~/finance-app-data` and restart — the seed will copy the
+> new version. Your `goals.md`, `user-principles.md`, `portfolio.md`,
+> `decisions-log.md`, and `data/` are user-owned and never touched by upgrade.
 
 ---
 

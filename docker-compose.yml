@@ -7,9 +7,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # User's persistent data: foundation md files, market.db, transactions,
-      # API key, sessions. Survives container restarts.
-      - ./data:/app/data
-    environment:
-      PROJECT_ROOT: /app/data
+      # User's persistent project: foundation md files, market.db, transactions,
+      # API key, sessions, logs. Survives container restarts. On first start,
+      # this directory is seeded from /app/template inside the image.
+      - ./project:/app/project
     restart: unless-stopped
