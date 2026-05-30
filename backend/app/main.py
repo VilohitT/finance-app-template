@@ -123,7 +123,7 @@ def get_file_content(path: str) -> dict[str, Any]:
 @app.websocket("/ws/chat")
 async def websocket_chat(ws: WebSocket) -> None:
     await ws.accept()
-    history: list[dict] = []
+    session = agent.Session()
     try:
         while True:
             raw = await ws.receive_text()
@@ -132,24 +132,18 @@ async def websocket_chat(ws: WebSocket) -> None:
             if kind == "skill":
                 skill_name = payload["skill"]
                 user_message = payload.get("message", "")
-                history = []  # Each skill invocation starts a fresh conversation.
-                async for event in agent.run_skill(skill_name, user_message, history):
-                    await ws.send_text(json.dumps(event))
-                    # Capture conversation so follow-up messages can continue it.
-                    # (Reconstruction happens inside the agent loop via append.)
-            elif kind == "message":
-                # Continuation of the current conversation. For Phase 1 we treat
-                # this as a fresh single-shot — multi-turn within a skill comes
-                # in a later phase.
-                user_message = payload.get("message", "")
                 await ws.send_text(
-                    json.dumps(
-                        {
-                            "type": "error",
-                            "message": "Multi-turn conversation not yet wired in Phase 1.",
-                        }
-                    )
+                    json.dumps({"type": "skill_started", "skill": skill_name})
                 )
+                async for event in agent.start_skill(session, skill_name, user_message):
+                    await ws.send_text(json.dumps(event))
+            elif kind == "message":
+                user_message = payload.get("message", "")
+                async for event in agent.continue_session(session, user_message):
+                    await ws.send_text(json.dumps(event))
+            elif kind == "reset":
+                session = agent.Session()
+                await ws.send_text(json.dumps({"type": "session_reset"}))
             elif kind == "ping":
                 await ws.send_text(json.dumps({"type": "pong"}))
             else:

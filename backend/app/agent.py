@@ -3,16 +3,24 @@
 Uses the Anthropic SDK directly (not Managed Agents) because our tools execute
 on the user's local filesystem, not in an Anthropic-hosted container.
 
+Sessions are stateful: a single WebSocket connection holds a `Session` object
+with the active system prompt and the running messages list. `start_skill`
+resets the session for a fresh skill invocation; `continue_session` appends a
+follow-up user message and runs another turn.
+
 Streaming events are yielded as dicts that the WebSocket layer forwards to the
 frontend as JSON. Event shape:
   {"type": "text", "delta": "..."}
-  {"type": "tool_use", "name": "read_file", "input": {...}, "id": "..."}
+  {"type": "thinking", "delta": "..."}
+  {"type": "tool_use_start", "name": "read_file", "id": "...", "input": {...}}
   {"type": "tool_result", "tool_use_id": "...", "output": "...", "is_error": bool}
+  {"type": "usage", "input_tokens": int, "output_tokens": int, ...}
   {"type": "done", "stop_reason": "end_turn"}
   {"type": "error", "message": "..."}
 """
 
 import logging
+from dataclasses import dataclass, field
 from typing import AsyncIterator
 
 import anthropic
@@ -24,22 +32,35 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_HEADER = """You are operating in an Indian-context personal investment planning system. The user is interacting with you via a chat UI; their foundation files (goals.md, principles.md, user-principles.md, portfolio.md, decisions-log.md, laws/) live in the project root and you can read and write them via the read_file, write_file, and edit_file tools. Scripts live in scripts/ and you can run them via the bash tool. Sub-portfolio names, sleeve targets, glide paths, regime, and routing rules come from user-principles.md — never hardcode them.
 
-The skill that was invoked appears below. Follow it exactly.
+The skill that was invoked appears below. Follow it exactly. If the user asks a follow-up after the skill completes, continue the same conversation using the same skill's guidance unless they invoke a different skill.
 
 ---
 
 """
 
 
-async def run_skill(
+@dataclass
+class Session:
+    """Per-WebSocket conversation state."""
+    system_prompt: str | None = None
+    skill_name: str | None = None
+    messages: list[dict] = field(default_factory=list)
+
+    def reset_to_skill(self, skill_name: str, skill_content: str) -> None:
+        self.skill_name = skill_name
+        self.system_prompt = SYSTEM_PROMPT_HEADER + skill_content
+        self.messages = []
+
+
+async def start_skill(
+    session: Session,
     skill_name: str,
     user_message: str,
-    conversation_history: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
-    """Run a skill against the Anthropic API and yield streaming events."""
+    """Begin a fresh conversation with a skill. Mutates session in place."""
     s = settings.load()
     if not s.anthropic_api_key:
-        yield {"type": "error", "message": "No Anthropic API key configured. Visit settings."}
+        yield {"type": "error", "message": "No Anthropic API key configured. Visit Settings."}
         return
 
     skill_content = skills.load_skill(skill_name)
@@ -47,22 +68,45 @@ async def run_skill(
         yield {"type": "error", "message": f"Skill not found: {skill_name}"}
         return
 
-    system_prompt = SYSTEM_PROMPT_HEADER + skill_content
-    messages = list(conversation_history or [])
-    messages.append({"role": "user", "content": user_message})
+    session.reset_to_skill(skill_name, skill_content)
+    session.messages.append({"role": "user", "content": user_message})
 
     client = anthropic.AsyncAnthropic(api_key=s.anthropic_api_key)
-    async for event in _agent_loop(client, system_prompt, messages, s):
+    async for event in _agent_loop(client, session, s):
+        yield event
+
+
+async def continue_session(
+    session: Session,
+    user_message: str,
+) -> AsyncIterator[dict]:
+    """Append a follow-up user message to the active session and run another turn."""
+    if session.system_prompt is None:
+        yield {
+            "type": "error",
+            "message": "No active skill. Start with a slash command (e.g. /setup).",
+        }
+        return
+
+    s = settings.load()
+    if not s.anthropic_api_key:
+        yield {"type": "error", "message": "No Anthropic API key configured. Visit Settings."}
+        return
+
+    session.messages.append({"role": "user", "content": user_message})
+
+    client = anthropic.AsyncAnthropic(api_key=s.anthropic_api_key)
+    async for event in _agent_loop(client, session, s):
         yield event
 
 
 async def _agent_loop(
     client: anthropic.AsyncAnthropic,
-    system_prompt: str,
-    messages: list[dict],
+    session: Session,
     s: settings.Settings,
 ) -> AsyncIterator[dict]:
     """Inner loop: streams Claude responses, executes tools, continues until end_turn."""
+    assert session.system_prompt is not None
     max_turns = 30
     turn = 0
     while turn < max_turns:
@@ -74,14 +118,14 @@ async def _agent_loop(
                 system=[
                     {
                         "type": "text",
-                        "text": system_prompt,
+                        "text": session.system_prompt,
                         "cache_control": {"type": "ephemeral"},
                     }
                 ],
                 thinking={"type": "adaptive"},
                 output_config={"effort": s.effort},
                 tools=tools.TOOLS_SCHEMA,
-                messages=messages,
+                messages=session.messages,
             ) as stream:
                 async for raw_event in stream:
                     forwarded = _forward_event(raw_event)
@@ -96,8 +140,8 @@ async def _agent_loop(
             yield {"type": "error", "message": f"Unexpected error: {exc}"}
             return
 
-        # Append assistant turn (always — even on tool_use).
-        messages.append({"role": "assistant", "content": final_message.content})
+        # Append assistant turn (always — even when stop_reason is tool_use).
+        session.messages.append({"role": "assistant", "content": final_message.content})
 
         if final_message.stop_reason == "end_turn":
             yield {"type": "done", "stop_reason": "end_turn"}
@@ -113,11 +157,18 @@ async def _agent_loop(
             return
 
         # Execute tool calls, send results back.
-        tool_results = []
+        tool_results: list[dict] = []
         for block in final_message.content:
             if block.type != "tool_use":
                 continue
-            output, is_error = tools.execute(block.name, dict(block.input))
+            tool_input = dict(block.input)
+            yield {
+                "type": "tool_use",
+                "id": block.id,
+                "name": block.name,
+                "input": tool_input,
+            }
+            output, is_error = tools.execute(block.name, tool_input)
             tool_results.append(
                 {
                     "type": "tool_result",
@@ -133,7 +184,7 @@ async def _agent_loop(
                 "is_error": is_error,
             }
         if tool_results:
-            messages.append({"role": "user", "content": tool_results})
+            session.messages.append({"role": "user", "content": tool_results})
 
     yield {"type": "error", "message": f"Reached max turns ({max_turns}) without completion."}
 
@@ -148,11 +199,6 @@ def _forward_event(event) -> dict | None:
             return {"type": "text", "delta": delta.text}
         if delta_type == "thinking_delta":
             return {"type": "thinking", "delta": delta.thinking}
-    if et == "content_block_start":
-        block = getattr(event, "content_block", None)
-        block_type = getattr(block, "type", None)
-        if block_type == "tool_use":
-            return {"type": "tool_use_start", "name": block.name, "id": block.id}
     if et == "message_delta":
         usage = getattr(event, "usage", None)
         if usage is not None:
