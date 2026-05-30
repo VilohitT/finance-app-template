@@ -1,0 +1,15 @@
+services:
+  finance-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finance-app
+    ports:
+      - "8000:8000"
+    volumes:
+      # User's persistent data: foundation md files, market.db, transactions,
+      # API key, sessions. Survives container restarts.
+      - ./data:/app/data
+    environment:
+      PROJECT_ROOT: /app/data
+    restart: unless-stopped

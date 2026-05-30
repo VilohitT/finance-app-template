@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { height: 100%; }
+body {
+  background: #0f1419;
+  color: #e6e8eb;
+}
+
+/* Prose styling for markdown messages */
+.prose-msg pre {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+}
+.prose-msg code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.875rem; }
+.prose-msg :not(pre) > code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+}
+.prose-msg h1, .prose-msg h2, .prose-msg h3 { font-weight: 600; margin: 1rem 0 0.5rem; }
+.prose-msg p { margin: 0.5rem 0; line-height: 1.6; }
+.prose-msg ul, .prose-msg ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+.prose-msg table { border-collapse: collapse; margin: 0.5rem 0; }
+.prose-msg th, .prose-msg td { border: 1px solid rgba(255,255,255,0.12); padding: 0.25rem 0.5rem; }
