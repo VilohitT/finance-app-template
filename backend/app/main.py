@@ -58,6 +58,8 @@ def get_settings() -> dict[str, Any]:
         "model": s.model,
         "effort": s.effort,
         "daily_nav_enabled": s.daily_nav_enabled,
+        "available_models": config.AVAILABLE_MODELS,
+        "available_efforts": config.AVAILABLE_EFFORTS,
     }
 
 

@@ -23,11 +23,18 @@ export async function fetchSkills(): Promise<Skill[]> {
   return res.json();
 }
 
+export interface SelectOption {
+  id: string;
+  label: string;
+}
+
 export interface SettingsState {
   has_api_key: boolean;
   model: string;
   effort: string;
   daily_nav_enabled: boolean;
+  available_models: SelectOption[];
+  available_efforts: SelectOption[];
 }
 
 export async function fetchSettings(): Promise<SettingsState> {

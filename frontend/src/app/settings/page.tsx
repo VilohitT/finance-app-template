@@ -88,13 +88,57 @@ export default function SettingsPage() {
         <section className="mb-12">
           <h2 className="text-lg font-medium mb-3">Model defaults</h2>
           <p className="text-xs text-gray-500 mb-3">
-            Adaptive thinking is always on. Model and effort are baked in for
-            Phase 4; surfacing them in the UI is a follow-up.
+            Adaptive thinking is always on. Changes apply to the next skill
+            invocation.
           </p>
-          <ul className="text-sm text-gray-300 space-y-1">
-            <li>Model: <code>{settings?.model}</code></li>
-            <li>Effort: <code>{settings?.effort}</code></li>
-          </ul>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1.5">
+                Model
+              </label>
+              <select
+                value={settings?.model ?? ""}
+                onChange={async (e) => {
+                  if (!settings) return;
+                  const next = await updateSettings({ model: e.target.value });
+                  setSettings(next);
+                }}
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+              >
+                {settings?.available_models?.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1.5">
+                Effort
+              </label>
+              <select
+                value={settings?.effort ?? ""}
+                onChange={async (e) => {
+                  if (!settings) return;
+                  const next = await updateSettings({ effort: e.target.value });
+                  setSettings(next);
+                }}
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+              >
+                {settings?.available_efforts?.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1.5">
+                Higher effort = more tool calls + deeper reasoning but more
+                tokens. <code>max</code> only works on Opus models.
+              </p>
+            </div>
+          </div>
         </section>
 
         <section>
