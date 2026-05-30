@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+================================================================================
+Daily NAV refresh — macOS launchd job.
+
+BEFORE LOADING THIS PLIST:
+  1. Replace {{PROJECT_ROOT}} with the absolute path to your finance-app
+     directory (e.g. /Users/you/finance-app). Three occurrences below.
+  2. Replace the Label's "yourusername" with anything unique on your machine
+     (it just needs to be unique — convention is reverse-DNS).
+  3. Make sure data/logs/ exists:  mkdir -p {{PROJECT_ROOT}}/data/logs
+
+  Or just run /setup and it will do all of this for you.
+
+INSTALL:
+  cp {{PROJECT_ROOT}}/scripts/com.template.financeapp.fetchnav.plist \
+     ~/Library/LaunchAgents/
+  launchctl load ~/Library/LaunchAgents/com.template.financeapp.fetchnav.plist
+
+UNINSTALL:
+  launchctl unload ~/Library/LaunchAgents/com.template.financeapp.fetchnav.plist
+  rm ~/Library/LaunchAgents/com.template.financeapp.fetchnav.plist
+================================================================================
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yourusername.financeapp.fetchnav</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>{{PROJECT_ROOT}}/scripts/fetch_nav.py</string>
+        <string>--quiet</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{PROJECT_ROOT}}</string>
+
+    <!-- Daily at 22:30 local time. AMFI publishes NAVAll.txt ~22:00 IST. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>22</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <!-- If asleep at scheduled time, run on wake. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>{{PROJECT_ROOT}}/data/logs/fetch_nav.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{PROJECT_ROOT}}/data/logs/fetch_nav.err.log</string>
+</dict>
+</plist>

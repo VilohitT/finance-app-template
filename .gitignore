@@ -1,0 +1,35 @@
+# Generated logs
+data/logs/*.log
+data/logs/*.err.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
+# OS temp
+Thumbs.db
+
+# Backup files
+*.bak
+*.orig
+*.tmp

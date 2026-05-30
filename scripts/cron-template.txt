@@ -1,0 +1,18 @@
+# ==============================================================================
+# Linux cron template for finance-app daily/monthly jobs.
+#
+# Setup:
+#   1. Replace {{PROJECT_ROOT}} below with your absolute project path
+#      (e.g. /home/you/finance-app).
+#   2. Make sure data/logs/ exists: mkdir -p {{PROJECT_ROOT}}/data/logs
+#   3. Run: crontab -e
+#   4. Paste the two lines below (without the "# " comments).
+#
+# Or just run /setup and it'll do this for you.
+# ==============================================================================
+
+# Daily NAV refresh at 22:30 local time.
+# 30 22 * * * cd {{PROJECT_ROOT}} && /usr/bin/python3 scripts/fetch_nav.py --quiet >> data/logs/fetch_nav.log 2>> data/logs/fetch_nav.err.log
+
+# Monthly recurring tranche generator on the 6th at 08:00 local time.
+# 0 8 6 * * cd {{PROJECT_ROOT}} && /usr/bin/python3 scripts/recurring_runner.py >> data/logs/recurring.log 2>> data/logs/recurring.err.log && /usr/bin/python3 scripts/render_portfolio.py --write >> data/logs/recurring.log 2>> data/logs/recurring.err.log

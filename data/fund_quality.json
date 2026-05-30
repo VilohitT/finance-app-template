@@ -1,0 +1,10 @@
+{
+  "_meta": {
+    "schema_version": "1.0",
+    "created": null,
+    "last_updated": null,
+    "last_research_run": null,
+    "source_note": "Populated by /fund-research. Each entry captures TER, manager_name, manager_since, aum_crore, last_verified, notes — cross-checked against Value Research, Freefincal, and AMC factsheets. Keyed by AMFI scheme_code (string)."
+  },
+  "schemes": {}
+}

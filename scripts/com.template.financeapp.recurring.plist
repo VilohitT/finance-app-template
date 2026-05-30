@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+================================================================================
+Monthly recurring SIP/STP tranche generator — macOS launchd job.
+
+BEFORE LOADING: replace {{PROJECT_ROOT}} with your absolute project path.
+See com.template.financeapp.fetchnav.plist header for setup steps, or run /setup.
+
+Runs on the 6th of every month at 08:00. Adjust if your SIP debit day differs;
+typical pattern is 1 day after the debit date so AMCs have time to post NAV.
+================================================================================
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yourusername.financeapp.recurring</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>/usr/bin/python3 {{PROJECT_ROOT}}/scripts/recurring_runner.py &amp;&amp; /usr/bin/python3 {{PROJECT_ROOT}}/scripts/render_portfolio.py --write</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{PROJECT_ROOT}}</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Day</key>
+        <integer>6</integer>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>{{PROJECT_ROOT}}/data/logs/recurring.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{PROJECT_ROOT}}/data/logs/recurring.err.log</string>
+</dict>
+</plist>

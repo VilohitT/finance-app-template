@@ -1,0 +1,6 @@
+{
+  "sips": [],
+  "stps": [],
+  "_schema_version": 1,
+  "_notes": "SIP/STP registry. Appended by /fund-allocate when you register a new recurring at your AMC; consumed by scripts/recurring_runner.py monthly."
+}
